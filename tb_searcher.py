@@ -3,7 +3,7 @@ import re
 import time
 import urllib
 import xlsxwriter
-import pymongo
+# import pymongo
 from PIL import Image
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -27,18 +27,18 @@ class TBSearcher:
         self.PASSWORD = password
         self.KEYWORD = keyword
         self.MONGO_TABLE = mongo_table
-
+        self.data_frame = None
         chrome_options = Options()
         chrome_options.add_argument('--headless')
         chrome_options.add_argument('--disable-gpu')
         self.chromedriver_path = chromedriver_path
         self.browser = FreezySeleniumSpider(path=self.chromedriver_path, options=chrome_options)
         self.wait = WebDriverWait(self.browser, 15)
-        self.db_client = pymongo.MongoClient('localhost', 27017)
-        self.db = self.db_client['search_taobao']
-        if self.MONGO_TABLE in self.db.list_collection_names():
-            self.db.drop_collection(self.db[self.MONGO_TABLE])
-        self.table = self.db[self.MONGO_TABLE]
+        # self.db_client = pymongo.MongoClient('localhost', 27017)
+        # self.db = self.db_client['search_taobao']
+        # if self.MONGO_TABLE in self.db.list_collection_names():
+        #     self.db.drop_collection(self.db[self.MONGO_TABLE])
+        # self.table = self.db[self.MONGO_TABLE]
         self.TOTAL_SUM = 0
         self.USE_SALE_DESC = user_sale_sort
         self.USE_TMALL = user_tmall
@@ -101,6 +101,7 @@ class TBSearcher:
         doc = pq(html)
         items = doc('#mainsrp-itemlist .items .item').items()
         index = 0
+        json_list = []
         for item in items:
             index = index + 1
             image_url = item.find('.J_ItemPic.img').attr('src')
@@ -121,9 +122,15 @@ class TBSearcher:
                 'link_url': link_url,
                 'image_file': image_file
             }
-
-            self.save_to_mongo(product)
+            json_list.append(product)
+            print('存储成功', product)
+            # self.save_to_mongo(product)
         self.TOTAL_SUM = self.TOTAL_SUM + index
+        if self.data_frame is None:
+            self.data_frame = pd.DataFrame(json_list)
+            # print(self.data_frame.columns)
+        else:
+            self.data_frame = self.data_frame.append(json_list)
         print('已经爬取' + str(self.TOTAL_SUM) + '件商品')
 
     def check_login(self):
@@ -155,18 +162,28 @@ class TBSearcher:
         except Exception as e:
             print("Exception:", e)
 
-    def save_to_mongo(self, result):
-        try:
-            if self.table.insert_one(result):
-                print('存储成功', result)
-        except Exception as e:
-            print('存储失败', e)
+    # def save_to_mongo(self, result):
+    #     try:
+    #         if self.table.insert_one(result):
+    #             print('存储成功', result)
+    #     except Exception as e:
+    #         print('存储失败', e)
+    #
+    # def mongoexport_to_csv(self, book):
+    #     print('开始导出数据到CSV')
+    #     csv_name = os.path.join(self.BASE_DIR, self.output_name, self.output_name + '.csv')
+    #     data = pd.DataFrame(list(self.table.find()))
+    #     data.to_csv(csv_name, encoding='utf-8', index=False)
+    #     print('导出数据到' + csv_name + '完成')
+    #     print('开始执行数据格式化Excel')
+    #     self.format_excel(csv_name, book)
+    #     print('成功生成Xlsx文档')
 
-    def mongoexport_to_csv(self, book):
+    def export_to_csv(self, book):
         print('开始导出数据到CSV')
         csv_name = os.path.join(self.BASE_DIR, self.output_name, self.output_name + '.csv')
-        data = pd.DataFrame(list(self.table.find()))
-        data.to_csv(csv_name, encoding='utf-8', index=False)
+        data = self.data_frame
+        data.to_csv(csv_name, encoding='utf-8', index=True)
         print('导出数据到' + csv_name + '完成')
         print('开始执行数据格式化Excel')
         self.format_excel(csv_name, book)
@@ -174,6 +191,7 @@ class TBSearcher:
 
     def format_excel(self, csv_name, book):
         df = pd.read_csv(csv_name)
+        df.index = df.index + 1
         # print(df.columns)
         my_format = book.add_format({
             'bold': True,  # 字体加粗
@@ -191,7 +209,7 @@ class TBSearcher:
         sheet.write("E1", "商品所属店铺", my_format)
         sheet.write("F1", "商品所在地", my_format)
         sheet.write("G1", "商品图片", my_format)
-        sheet.write_column(1, 0, df._id.values.tolist(), my_format)  # 昵称放在第一列
+        sheet.write_column(1, 0, df.index.values.tolist(), my_format)  # 昵称放在第一列
         sheet.write_column(1, 1, df.price.values.tolist(), my_format)
         sheet.write_column(1, 2, df.deal.values.tolist(), my_format)
         sheet.write_column(1, 3, df.title.values.tolist(), my_format)
@@ -231,12 +249,12 @@ class TBSearcher:
                 self.next_page(i)
             book = xlsxwriter.Workbook(os.path.join(self.BASE_DIR, self.output_name, self.output_name + '.xlsx'),
                                        {'nan_inf_to_errors': True})
-            self.mongoexport_to_csv(book)
+            self.export_to_csv(book)
         except Exception as e:
             print('爬取错误', e)
         finally:
             self.browser.close()
-            self.db_client.close()
+            # self.db_client.close()
             book.close()
             print('本次任务结束:总共爬取了' + str(self.TOTAL_SUM) + '件' + self.KEYWORD + '类型商品')
 
@@ -266,8 +284,8 @@ if __name__ == '__main__':
             continue
         break
 
-    password = getpass.getpass('请输入您的密码:')
-    # password = input('请输入您的密码:')
+    # password = getpass.getpass('请输入您的密码:')
+    password = input('请输入您的密码:')
 
     while True:
         num = input('请输出要爬取的最大页数(默认10):')
@@ -298,7 +316,7 @@ if __name__ == '__main__':
             print('请输入正确的目录')
             continue
         break
-    output_name = input('请选择输出目录名称:')
+    output_name = input('请选择输出目录名称(默认:关键词_时间):')
     if output_name == '':
         output_name = key_word + '_' + time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
 
