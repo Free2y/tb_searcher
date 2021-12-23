@@ -12,6 +12,7 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 from pyquery import PyQuery as pq
 import pandas as pd
+import getpass
 
 from tools.freezy_selenium_spider import FreezySeleniumSpider
 
@@ -272,13 +273,13 @@ if __name__ == '__main__':
             if username != '':
                 USERNAME = username
             else:
-                username = USERNAME
+                continue
         if password == '':
-            password = input('请输入您的密码:')
+            password = getpass.getpass('请输入您的密码:')
             if password != '':
                 PASSWORD = password
             else:
-                password = PASSWORD
+                continue
 
         use_sale_desc = input('是否使用销量排序Y/N(默认综合排序):')
         if use_sale_desc == 'Y':
