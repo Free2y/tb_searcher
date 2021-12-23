@@ -1,2 +1,4 @@
 需要有对应chromedriver.exe
 默认r'D:\Miniconda3\chromedriver.exe'
+
+pyinstaller -F --add-data='./tools/stealth.min.js;tools' -i favicon.ico tb_searcher.py
