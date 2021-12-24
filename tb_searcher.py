@@ -20,7 +20,7 @@ from tools.freezy_selenium_spider import FreezySeleniumSpider
 class TBSearcher:
 
     def __init__(self, chromedriver_path, output_basedir, output_name, username, password, keyword, user_sale_sort,
-                 user_tmall, mongo_table='default'):
+                 user_tmall, browser_hide_flag, mongo_table='default'):
         self.BASE_DIR = output_basedir
         self.output_name = output_name
         self.USERNAME = username
@@ -29,8 +29,9 @@ class TBSearcher:
         self.MONGO_TABLE = mongo_table
         self.data_frame = None
         chrome_options = Options()
-        chrome_options.add_argument('--headless')
-        chrome_options.add_argument('--disable-gpu')
+        if browser_hide_flag:
+            chrome_options.add_argument('--headless')
+        # chrome_options.add_argument('--disable-gpu')
         self.chromedriver_path = chromedriver_path
         self.browser = FreezySeleniumSpider(path=self.chromedriver_path, options=chrome_options)
         self.wait = WebDriverWait(self.browser, 15)
@@ -284,8 +285,11 @@ if __name__ == '__main__':
             continue
         break
 
-    # password = getpass.getpass('请输入您的密码:')
-    password = input('请输入您的密码:')
+    hide_mode = input('是否隐藏密码Y/N(默认可见):')
+    if hide_mode == 'Y':
+        password = getpass.getpass('请输入您的密码:')
+    else:
+        password = input('请输入您的密码:')
 
     while True:
         num = input('请输出要爬取的最大页数(默认10):')
@@ -335,7 +339,13 @@ if __name__ == '__main__':
     print('您将一共爬取' + str(num) + '页数据')
     print('您的资料将存在' + os.path.join(output_basedir, output_name) + '  目录下')
 
+    browser_hide = input('是否打开浏览器可见Y/N(默认不可见):')
+    if browser_hide == 'Y':
+        browser_hide_flag = False
+    else:
+        browser_hide_flag = True
+
     tbs = TBSearcher(chromedriver_path, output_basedir, output_name, username, password, key_word, use_sale_desc_flag,
-                     use_tmall_flag)
+                     use_tmall_flag, browser_hide_flag)
 
     tbs.start_search(num)
